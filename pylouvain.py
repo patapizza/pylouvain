@@ -30,10 +30,7 @@ class PyLouvain:
     def apply_method(self):
         network = (self.nodes, self.edges)
         best_partition = self.make_initial_partition(network[0])
-        i = 1
         while 1:
-            print("pass #%d" % i)
-            i += 1
             # TODO: precompute parameter m (and k vector?)
             partition = [c for c in self.first_phase(network) if c]
             nodes, edges = self.second_phase(network, partition)
@@ -41,7 +38,7 @@ class PyLouvain:
                 break
             best_partition = partition
             network = (nodes, edges)
-            print(best_partition)
+            print("%s (%.2f)" % (best_partition, self.compute_modularity(network, partition)))
         return best_partition
 
     '''
@@ -148,12 +145,16 @@ class PyLouvain:
         _partition: a list of lists of nodes
     '''
     def second_phase(self, network, partition):
-        nodes_new = [i for i in range(len(partition))]
-        edges_new = []
+        nodes_ = [i for i in range(len(partition))]
+        edges_ = {}
         for e in network[1]:
             ci = self.get_community(e[0][0], partition)
             cj = self.get_community(e[0][1], partition)
-            edges_new.append(((ci, cj), e[1]))
-        # TODO: flatten edges_new using a dict
-        return (nodes_new, edges_new)
+            # TODO? add constraint ci < cj
+            try:
+                edges_[(ci, cj)] += e[1]
+            except KeyError:
+                edges_[(ci, cj)] = e[1]
+        edges_ = [(k, v) for k, v in edges_.items()]
+        return (nodes_, edges_)
 
