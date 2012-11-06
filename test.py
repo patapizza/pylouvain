@@ -22,7 +22,7 @@ class PylouvainTest(unittest.TestCase):
         self.pyl = PyLouvain(self.nodes, self.edges)
 
     def test_modularity(self):
-        print("%d\n" % self.pyl.compute_modularity((self.nodes, self.edges), [[i] for i in range(10)]))
+        print("%.2f\n" % self.pyl.compute_modularity((self.nodes, self.edges), [[i] for i in range(10)]))
 
     def test_method(self):
         print(self.pyl.apply_method())

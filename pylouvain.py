@@ -30,14 +30,18 @@ class PyLouvain:
     def apply_method(self):
         network = (self.nodes, self.edges)
         best_partition = self.make_initial_partition(network[0])
+        i = 1
         while 1:
+            print("pass #%d" % i)
+            i += 1
             # TODO: precompute parameter m (and k vector?)
-            partition = self.first_phase(network)
+            partition = [c for c in self.first_phase(network) if c]
             nodes, edges = self.second_phase(network, partition)
             if partition == best_partition:
                 break
             best_partition = partition
             network = (nodes, edges)
+            print(best_partition)
         return best_partition
 
     '''
@@ -53,10 +57,9 @@ class PyLouvain:
         q = 0
         for i in network[0]:
             for j in network[0]:
-                if self.get_community(i, partition) == self.get_community(j, partition):
+                if self.get_community(i, partition) != self.get_community(j, partition):
                     continue
                 q += self.get_weight(i, j, network[1]) - (self.compute_weights(i, network[1]) * self.compute_weights(j, network[1]) / m)
-        print("q: %.2f" % (q / m))
         return q / m
 
     '''
@@ -88,8 +91,6 @@ class PyLouvain:
                     current_partition[self.get_community(neighbor, partition)].append(node)
                     # compute modularity obtained
                     current_modularity = self.compute_modularity(network, current_partition)
-                    print("CUR partition: %s (q: %.2f)" % (current_partition, current_modularity))
-                    print("BEST partition: %s (q: %.2f)" % (best_partition[1], best_partition[0]))
                     if best_partition[0] < current_modularity:
                         best_partition = (current_modularity, current_partition)
                 # move node from its community to the one of the neighbor maximizing the modularity gain (if positive)
