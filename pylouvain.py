@@ -52,7 +52,8 @@ class PyLouvain:
         q = 0
         for i in network[0]:
             for j in network[0]:
-                continue if self.get_community(i, partition) == self.get_community(j, partition)
+                if self.get_community(i, partition) == self.get_community(j, partition):
+                    continue
                 q += self.get_weight(i, j, network[1]) - (self.compute_weights(i, network[1]) * self.compute_weights(j, network[1]) / m)
         return q / m
 
@@ -85,10 +86,12 @@ class PyLouvain:
                     current_partition[self.get_community(neighbor, partition)].append(node)
                     # compute modularity obtained
                     current_modularity = self.compute_modularity(network, current_partition)
-                    best_partition = (current_modularity, current_partition) if best_partition[0] < current_modularity
+                    if best_partition[0] < current_modularity:
+                        best_partition = (current_modularity, current_partition)
                 # move node from its community to the one of the neighbor maximizing the modularity gain (if positive)
                 partition = best_partition[1]
-            break if best_partition[0] == best_modularity: # no improvement
+            if best_partition[0] == best_modularity: # no improvement
+                break
         return partition
 
     '''
@@ -108,7 +111,9 @@ class PyLouvain:
         _edges: a list of ((node, node), weight) pairs
     '''
     def get_neighbors(self, node, edges):
-        yield e for e in edges if e[0][0] == node or e[0][1] == node
+        for e in edges:
+            if e[0][0] == node or e[0][1] == node:
+                yield e
 
     '''
         Returns the weight of edge (_i, _j) among _edges.
@@ -135,5 +140,11 @@ class PyLouvain:
         _partition: a list of lists of nodes
     '''
     def second_phase(self, network, partition):
-        pass
+        nodes_new = [i for i in range(len(partition))]
+        edges_new = []
+        for e in network[1]:
+            ci = self.get_community(e[0][0], partition)
+            cj = self.get_community(e[0][1], partition)
+            edges_new.append(((ci, cj), e[1]))
+        return (nodes_new, edges_new)
 
