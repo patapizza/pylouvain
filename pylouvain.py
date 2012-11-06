@@ -29,7 +29,7 @@ class PyLouvain:
     '''
     def apply_method(self):
         network = (self.nodes, self.edges)
-        best_partition = self.make_initial_partition()
+        best_partition = self.make_initial_partition(network[0])
         while 1:
             # TODO: precompute parameter m (and k vector?)
             partition = self.first_phase(network)
@@ -37,6 +37,7 @@ class PyLouvain:
             if partition == best_partition:
                 break
             best_partition = partition
+            network = (nodes, edges)
         return best_partition
 
     '''
@@ -55,6 +56,7 @@ class PyLouvain:
                 if self.get_community(i, partition) == self.get_community(j, partition):
                     continue
                 q += self.get_weight(i, j, network[1]) - (self.compute_weights(i, network[1]) * self.compute_weights(j, network[1]) / m)
+        print("q: %.2f" % (q / m))
         return q / m
 
     '''
@@ -86,6 +88,8 @@ class PyLouvain:
                     current_partition[self.get_community(neighbor, partition)].append(node)
                     # compute modularity obtained
                     current_modularity = self.compute_modularity(network, current_partition)
+                    print("CUR partition: %s (q: %.2f)" % (current_partition, current_modularity))
+                    print("BEST partition: %s (q: %.2f)" % (best_partition[1], best_partition[0]))
                     if best_partition[0] < current_modularity:
                         best_partition = (current_modularity, current_partition)
                 # move node from its community to the one of the neighbor maximizing the modularity gain (if positive)
@@ -103,6 +107,7 @@ class PyLouvain:
         for i in range(len(partition)):
             if node in partition[i]:
                 return i
+        print("unable to find community of node %d" % node)
         return -1
 
     '''
@@ -112,8 +117,10 @@ class PyLouvain:
     '''
     def get_neighbors(self, node, edges):
         for e in edges:
-            if e[0][0] == node or e[0][1] == node:
-                yield e
+            if e[0][0] == node:
+                yield e[0][1]
+            if e[0][1] == node:
+                yield e[0][0]
 
     '''
         Returns the weight of edge (_i, _j) among _edges.
@@ -125,7 +132,7 @@ class PyLouvain:
         for e in edges:
             if e[0][0] == i and e[0][1] == j:
                 return e[1]
-        return -1
+        return 0
 
     '''
         Builds the initial partition.
@@ -146,5 +153,6 @@ class PyLouvain:
             ci = self.get_community(e[0][0], partition)
             cj = self.get_community(e[0][1], partition)
             edges_new.append(((ci, cj), e[1]))
+        # TODO: flatten edges_new using a dict
         return (nodes_new, edges_new)
 
