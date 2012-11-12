@@ -23,6 +23,7 @@ class PyLouvain:
             nodes[n[0]] = 1
             nodes[n[1]] = 1
             edges.append(((n[0], n[1]), 1))
+        print("%d nodes, %d edges" % (len(list(nodes.keys())), len(edges)))
         return cls(list(nodes.keys()), edges)
 
     '''
@@ -70,7 +71,44 @@ class PyLouvain:
         return q / m
 
     '''
-        Computes the sum of the weights of the edges attached to vertex _i.
+        Computes the modularity gain of having node in its partition.
+        _node: an int
+        _network: a (nodes, edges) pair
+        _partition: a list of lists of nodes
+    '''
+    def compute_modularity_gain(self, node, network, partition):
+        # TODO: precompute m and k_i
+        c = self.get_community(node, partition)
+        m = 0
+        s_in = 0
+        s_tot = 0
+        k_i = 0
+        k_i_in = 0
+        for edge in network[1]:
+            c0 = self.get_community(edge[0][0], partition)
+            c1 = self.get_community(edge[0][1], partition)
+            # compute m
+            m += edge[1]
+            # compute s_in
+            if c0 == c and c1 == c:
+                s_in += edge[1]
+            # compute s_tot
+            if c0 == c or c1 == c:
+                s_tot += edge[1]
+            # compute k_i
+            if edge[0][0] == node or edge[0][1] == node:
+                k_i += edge[1]
+            # compute k_i,in
+            if edge[0][0] == node and c1 == c or edge[0][1] == node and c0 == c:
+                k_i_in += edge[1]
+        m2 = 2 * m
+        s_tot_k_i = (s_tot + k_i) / m2
+        s_tot_ = s_tot / m2
+        k_i_ = k_i / m2
+        return ((s_in + k_i_in) / m2 - s_tot_k_i * s_tot_k_i) - (s_in / m2 - s_tot_ * s_tot_ - k_i_ * k_i_)
+
+    '''
+        Computes the sum of the weights of the edges incident to vertex _i.
         _i: a node
         _edges: a list of ((node, node), weight) pairs
     '''
@@ -87,22 +125,27 @@ class PyLouvain:
     '''
     def first_phase(self, network):
         partition = self.make_initial_partition(network[0])
-        best_partition = (self.compute_modularity(network, partition), partition)
+        best = (0, partition)
         while 1:
-            best_modularity = best_partition[0]
+            modularity = best[0]
             for node in network[0]:
+                # compute modularity gain of having _node in its community
+                q = self.compute_modularity_gain(node, network, partition)
+                # compute modularity gain resulting from moving _node to the community of _neighbor
+                # TODO: only consider neighbors from different communities
                 for neighbor in self.get_neighbors(node, network[1]):
                     # move _node from its community to the community of _neighbor
-                    current_partition = [[pp for pp in p] for p in partition]
-                    current_partition[self.get_community(node, partition)].remove(node)
-                    current_partition[self.get_community(neighbor, partition)].append(node)
+                    partition_ = [[pp for pp in p] for p in partition]
+                    partition_[self.get_community(node, partition)].remove(node)
+                    partition_[self.get_community(neighbor, partition)].append(node)
                     # compute modularity obtained
-                    current_modularity = self.compute_modularity(network, current_partition)
-                    if best_partition[0] < current_modularity:
-                        best_partition = (current_modularity, current_partition)
+                    q_ = self.compute_modularity_gain(node, network, partition_)
+                    if q < q_:
+                        best = (q_, partition_)
+                        q = q_
                 # move node from its community to the one of the neighbor maximizing the modularity gain (if positive)
-                partition = best_partition[1]
-            if best_partition[0] == best_modularity: # no improvement
+                partition = best[1]
+            if best[0] == modularity: # no improvement
                 break
         return partition
 
@@ -112,6 +155,7 @@ class PyLouvain:
         _partition: a list of lists of nodes
     '''
     def get_community(self, node, partition):
+        # TODO: use of an efficient data structure to retrieve one's community
         for i in range(len(partition)):
             if node in partition[i]:
                 return i
