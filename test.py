@@ -110,5 +110,9 @@ class PylouvainTest(unittest.TestCase):
     def test_karate_club(self):
         self.karate_pyl.apply_method()
 
+    def test_arxiv(self):
+        pyl = PyLouvain.from_file("/home/patapizza/Dropbox/cours/2012_2013/q1/LINMA1691/Projets/hep-th-citations")
+        pyl.apply_method()
+
 if __name__ == '__main__':
     unittest.main()

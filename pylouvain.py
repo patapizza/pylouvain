@@ -8,12 +8,22 @@
 class PyLouvain:
 
     '''
-        Initializes the method.
-        _network: a (nodes, edges) pair
+        Builds a graph from _path.
+        _path: a path to a file containing "node_from node_to" edges (one per line)
     '''
-    def __init__(self, network):
-        self.nodes = network[0]
-        self.edges = network[1]
+    @classmethod
+    def from_file(cls, path):
+        f = open(path, 'r')
+        lines = f.readlines()
+        f.close()
+        nodes = {}
+        edges = []
+        for line in lines:
+            n = line.split()
+            nodes[n[0]] = 1
+            nodes[n[1]] = 1
+            edges.append(((n[0], n[1]), 1))
+        return cls(list(nodes.keys()), edges)
 
     '''
         Initializes the method.
