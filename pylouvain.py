@@ -125,8 +125,9 @@ class PyLouvain:
         while 1:
             improvement = False
             for node in network[0]:
+                node_community = self.get_community(node, best_partition)
                 # default best community is its own
-                best_community = self.get_community(node, best_partition)
+                best_community = node_community
                 best_gain = 0
                 # remove _node from its community
                 partition = [[pp for pp in p] for p in best_partition]
@@ -139,10 +140,11 @@ class PyLouvain:
                     if gain > best_gain:
                         best_community = community
                         best_gain = gain
-                        improvement = True
                 # insert _node into the community maximizing the modularity gain
                 partition[best_community].append(node)
                 best_partition = partition
+                if node_community != best_community:
+                    improvement = True
             if not improvement:
                 break
         return best_partition
