@@ -34,6 +34,16 @@ class PyLouvain:
     def __init__(self, nodes, edges):
         self.nodes = nodes
         self.edges = edges
+        # precompute m2 (2 * sum of the weights of all links in network)
+        #            k_i (sum of the weights of the links incident to node i)
+        self.m2 = 0
+        self.k_i = [0 for n in nodes]
+        for e in edges:
+            self.m2 += e[1]
+            self.k_i[e[0][0]] += e[1]
+            self.k_i[e[0][1]] += e[1]
+        self.m2 *= 2
+
 
     '''
         Applies the Louvain method.
@@ -44,11 +54,10 @@ class PyLouvain:
         while 1:
             # TODO: precompute parameter m (and k vector?)
             partition = [c for c in self.first_phase(network) if c]
-            nodes, edges = self.second_phase(network, partition)
             if partition == best_partition:
                 break
+            network = self.second_phase(network, partition)
             best_partition = partition
-            network = (nodes, edges)
             print("%s (%.2f)" % (best_partition, self.compute_modularity(network, partition)))
         return best_partition
 
@@ -74,34 +83,28 @@ class PyLouvain:
         Computes the modularity gain of having node in community _c.
         _node: an int
         _c: an int
-        _network: a (nodes, edges) pair
+        _edges: a list of ((node, node), weight) pairs
         _partition: a list of lists of nodes
     '''
-    def compute_modularity_gain(self, node, c, network, partition):
-        # TODO: precompute m and k_i
-        m, s_in, s_tot, k_i, k_i_in = 0, 0, 0, 0, 0
-        for edge in network[1]:
+    def compute_modularity_gain(self, node, c, edges, partition):
+        # TODO: keep track of s_in, s_tot and k_i_in instead of computing each time
+        s_in, s_tot, k_i_in = 0, 0, 0
+        for edge in edges:
             c0 = self.get_community(edge[0][0], partition)
             c1 = self.get_community(edge[0][1], partition)
-            # compute m (sum of the weights of all the links in the network)
-            m += edge[1]
             # compute s_in (sum of the weights of the links inside _c)
             if c0 == c and c1 == c:
                 s_in += edge[1]
             # compute s_tot (sum of the weights of the links incident to nodes in _c)
             if c0 == c or c1 == c:
                 s_tot += edge[1]
-            # compute k_i (sum of the weights of the links incident to _node)
-            if edge[0][0] == node or edge[0][1] == node:
-                k_i += edge[1]
-            # compute k_i,in (sum of the weights of the links from _node to nodes in _c)
+            # compute k_i_in (sum of the weights of the links from _node to nodes in _c)
             if edge[0][0] == node and c1 == c or edge[0][1] == node and c0 == c:
                 k_i_in += edge[1]
-        m2 = 2 * m
-        s_tot_k_i = (s_tot + k_i) / m2
-        s_tot_ = s_tot / m2
-        k_i_ = k_i / m2
-        return ((s_in + k_i_in) / m2 - s_tot_k_i * s_tot_k_i) - (s_in / m2 - s_tot_ * s_tot_ - k_i_ * k_i_)
+        s_tot_k_i = (s_tot + self.k_i[node]) / self.m2
+        s_tot_ = s_tot / self.m2
+        k_i_ = self.k_i[node] / self.m2
+        return ((s_in + k_i_in) / self.m2 - s_tot_k_i * s_tot_k_i) - (s_in / self.m2 - s_tot_ * s_tot_ - k_i_ * k_i_)
 
     '''
         Computes the sum of the weights of the edges incident to vertex _i.
@@ -136,7 +139,7 @@ class PyLouvain:
                 for neighbor in self.get_neighbors(node, network[1]):
                     community = self.get_community(neighbor, best_partition)
                     # compute modularity gain obtained by moving _node to the community of _neighbor
-                    gain = self.compute_modularity_gain(node, community, network, partition)
+                    gain = self.compute_modularity_gain(node, community, network[1], partition)
                     if gain > best_gain:
                         best_community = community
                         best_gain = gain
@@ -202,5 +205,11 @@ class PyLouvain:
             except KeyError:
                 edges_[(ci, cj)] = e[1]
         edges_ = [(k, v) for k, v in edges_.items()]
+        # recompute k_i vector
+        self.k_i = [0 for n in nodes_]
+        for e in edges_:
+            self.k_i[e[0][0]] += e[1]
+            if e[0][0] != e[0][1]:
+                self.k_i[e[0][1]] += e[1]
         return (nodes_, edges_)
 
