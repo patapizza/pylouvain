@@ -20,11 +20,24 @@ class PyLouvain:
         edges = []
         for line in lines:
             n = line.split()
-            nodes[n[0]] = 1
-            nodes[n[1]] = 1
-            edges.append(((n[0], n[1]), 1))
-        print("%d nodes, %d edges" % (len(list(nodes.keys())), len(edges)))
-        return cls(list(nodes.keys()), edges)
+            nodes[int(n[0])] = 1
+            nodes[int(n[1])] = 1
+            edges.append(((int(n[0]), int(n[1])), 1))
+        # rebuild graph with successive identifiers
+        nodes = list(nodes.keys())
+        nodes.sort()
+        i = 0
+        nodes_ = []
+        d = {}
+        for n in nodes:
+            nodes_.append(i)
+            d[n] = i
+            i += 1
+        edges_ = []
+        for e in edges:
+            edges_.append(((d[e[0][0]], d[e[0][1]]), e[1]))
+        print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
+        return cls(nodes_, edges_)
 
     '''
         Initializes the method.
@@ -83,28 +96,15 @@ class PyLouvain:
         Computes the modularity gain of having node in community _c.
         _node: an int
         _c: an int
+        _k_i_in: the sum of the weights of the links from _node to nodes in _c
         _edges: a list of ((node, node), weight) pairs
         _partition: a list of lists of nodes
     '''
-    def compute_modularity_gain(self, node, c, edges, partition):
-        # TODO: keep track of s_in, s_tot and k_i_in instead of computing each time
-        s_in, s_tot, k_i_in = 0, 0, 0
-        for edge in edges:
-            c0 = self.get_community(edge[0][0], partition)
-            c1 = self.get_community(edge[0][1], partition)
-            # compute s_in (sum of the weights of the links inside _c)
-            if c0 == c and c1 == c:
-                s_in += edge[1]
-            # compute s_tot (sum of the weights of the links incident to nodes in _c)
-            if c0 == c or c1 == c:
-                s_tot += edge[1]
-            # compute k_i_in (sum of the weights of the links from _node to nodes in _c)
-            if edge[0][0] == node and c1 == c or edge[0][1] == node and c0 == c:
-                k_i_in += edge[1]
-        s_tot_k_i = (s_tot + self.k_i[node]) / self.m2
-        s_tot_ = s_tot / self.m2
+    def compute_modularity_gain(self, node, c, k_i_in):
+        s_tot_k_i = (self.s_tot[c] + self.k_i[node]) / self.m2
+        s_tot_ = self.s_tot[c] / self.m2
         k_i_ = self.k_i[node] / self.m2
-        return ((s_in + k_i_in) / self.m2 - s_tot_k_i * s_tot_k_i) - (s_in / self.m2 - s_tot_ * s_tot_ - k_i_ * k_i_)
+        return ((self.s_in[c] + k_i_in) / self.m2 - s_tot_k_i * s_tot_k_i) - (self.s_in[c] / self.m2 - s_tot_ * s_tot_ - k_i_ * k_i_)
 
     '''
         Computes the sum of the weights of the edges incident to vertex _i.
@@ -124,7 +124,7 @@ class PyLouvain:
     '''
     def first_phase(self, network):
         # make initial partition
-        best_partition = [[node] for node in network[0]]
+        best_partition = self.make_initial_partition(network)
         while 1:
             improvement = False
             for node in network[0]:
@@ -134,17 +134,32 @@ class PyLouvain:
                 best_gain = 0
                 # remove _node from its community
                 partition = [[pp for pp in p] for p in best_partition]
-                partition[best_community].remove(node)
-                # TODO: only consider neighbors from different communities
+                partition[node_community].remove(node)
+                for e in network[1]:
+                    if e[0][0] == node or e[0][1] == node:
+                        self.s_in[node_community] -= e[1]
+                self.s_tot[node_community] -= self.k_i[node]
+                communities = {} # only consider neighbors of different communities
                 for neighbor in self.get_neighbors(node, network[1]):
                     community = self.get_community(neighbor, best_partition)
+                    if community in communities:
+                        continue
+                    communities[community] = 1
+                    k_i_in = 0
+                    for e in network[1]:
+                        if e[0][0] == node and self.get_community(e[0][1], partition) == community or e[0][1] == node and self.get_community(e[0][0], partition) == community:
+                            k_i_in += e[1]
                     # compute modularity gain obtained by moving _node to the community of _neighbor
-                    gain = self.compute_modularity_gain(node, community, network[1], partition)
+                    gain = self.compute_modularity_gain(node, community, k_i_in)
                     if gain > best_gain:
                         best_community = community
                         best_gain = gain
                 # insert _node into the community maximizing the modularity gain
                 partition[best_community].append(node)
+                for e in network[1]:
+                    if e[0][0] == node or e[0][1] == node:
+                        self.s_in[best_community] += e[1]
+                self.s_tot[best_community] += self.k_i[node]
                 best_partition = partition
                 if node_community != best_community:
                     improvement = True
@@ -189,6 +204,19 @@ class PyLouvain:
         return 0
 
     '''
+        Builds the initial partition from _network.
+        _network: a (nodes, edges) pair
+    '''
+    def make_initial_partition(self, network):
+        partition = [[node] for node in network[0]]
+        self.s_in = [0 for node in network[0]]
+        self.s_tot = [self.k_i[node] for node in network[0]]
+        for e in network[1]:
+            if e[0][0] == e[0][1]: # only self-loops
+                self.s_in[e[0][0]] += e[1]
+        return partition
+
+    '''
         Performs the second phase of the method.
         _network: a (nodes, edges) pair
         _partition: a list of lists of nodes
@@ -209,7 +237,7 @@ class PyLouvain:
         self.k_i = [0 for n in nodes_]
         for e in edges_:
             self.k_i[e[0][0]] += e[1]
-            if e[0][0] != e[0][1]:
+            if e[0][0] != e[0][1]: # counting self-loops only once
                 self.k_i[e[0][1]] += e[1]
         return (nodes_, edges_)
 
