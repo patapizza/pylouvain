@@ -154,7 +154,7 @@ class PyLouvain:
                 self.s_in[node_community] -= self.k_i[node]
                 self.s_tot[node_community] -= self.k_i[node]
                 communities = {} # only consider neighbors of different communities
-                for neighbor in self.get_neighbors(node, network[1]):
+                for neighbor in self.get_neighbors(node):
                     community = self.communities[neighbor]
                     if community in communities:
                         continue
@@ -183,10 +183,9 @@ class PyLouvain:
     '''
         Yields the nodes adjacent to _node.
         _node: an int
-        _edges: a list of ((node, node), weight) pairs
     '''
-    def get_neighbors(self, node, edges):
-        for e in edges:
+    def get_neighbors(self, node):
+        for e in self.edges_of_node[node]:
             if e[0][0] == node and e[0][1] == node:
                 continue # a node is not a neighbor of itself
             if e[0][0] == node:
