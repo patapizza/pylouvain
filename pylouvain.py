@@ -141,9 +141,7 @@ class PyLouvain:
                 partition = [[pp for pp in p] for p in best_partition]
                 partition[node_community].remove(node)
                 self.communities[node] = -1
-                for e in network[1]:
-                    if e[0][0] == node or e[0][1] == node:
-                        self.s_in[node_community] -= e[1]
+                self.s_in[node_community] -= self.k_i[node]
                 self.s_tot[node_community] -= self.k_i[node]
                 communities = {} # only consider neighbors of different communities
                 for neighbor in self.get_neighbors(node, network[1]):
@@ -163,9 +161,7 @@ class PyLouvain:
                 # insert _node into the community maximizing the modularity gain
                 partition[best_community].append(node)
                 self.communities[node] = best_community
-                for e in network[1]:
-                    if e[0][0] == node or e[0][1] == node:
-                        self.s_in[best_community] += e[1]
+                self.s_in[best_community] += self.k_i[node]
                 self.s_tot[best_community] += self.k_i[node]
                 best_partition = partition
                 if node_community != best_community:
