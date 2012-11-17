@@ -21,9 +21,13 @@ class PyLouvain:
         edges = []
         for line in lines:
             n = line.split()
-            nodes[int(n[0])] = 1
-            nodes[int(n[1])] = 1
-            edges.append(((int(n[0]), int(n[1])), 1))
+            if not n:
+                break
+            n0 = int(n[0])
+            n1 = int(n[1])
+            nodes[n0] = 1
+            nodes[n1] = 1
+            edges.append(((n0, n1), 1))
         # rebuild graph with successive identifiers
         nodes = list(nodes.keys())
         nodes.sort()
@@ -53,10 +57,14 @@ class PyLouvain:
         self.m2 = 0
         self.k_i = [0 for n in nodes]
         self.edges_of_node = {}
+        self.w = [0 for n in nodes]
         for e in edges:
             self.m2 += e[1]
             self.k_i[e[0][0]] += e[1]
-            self.k_i[e[0][1]] += e[1]
+            if e[0][0] != e[0][1]: # counting self-loops only once
+                self.k_i[e[0][1]] += e[1]
+            else: # self-loops
+                self.w[e[0][0]] += e[1]
             # save edges by node
             if e[0][0] not in self.edges_of_node:
                 self.edges_of_node[e[0][0]] = [e]
@@ -86,7 +94,7 @@ class PyLouvain:
                 break
             network = self.second_phase(network, partition)
             best_partition = partition
-            print("%s (%.2f)" % (best_partition, self.compute_modularity(network, partition)))
+            print("%s (%.8f)" % (best_partition, self.compute_modularity(network, partition)))
         return best_partition
 
     '''
@@ -141,7 +149,7 @@ class PyLouvain:
         # make initial partition
         best_partition = self.make_initial_partition(network)
         while 1:
-            improvement = False
+            improvement = 0
             for node in network[0]:
                 node_community = self.communities[node]
                 # default best community is its own
@@ -149,9 +157,13 @@ class PyLouvain:
                 best_gain = 0
                 # remove _node from its community
                 best_partition[node_community].remove(node)
-                self.communities[node] = -1
-                self.s_in[node_community] -= self.k_i[node]
+                best_shared_links = 0
+                for e in self.edges_of_node[node]:
+                    if e[0][0] == node and self.communities[e[0][1]] == node_community or e[0][1] == node and self.communities[e[0][0]] == node_community:
+                        best_shared_links += e[1]
+                self.s_in[node_community] -= best_shared_links
                 self.s_tot[node_community] -= self.k_i[node]
+                self.communities[node] = -1
                 communities = {} # only consider neighbors of different communities
                 for neighbor in self.get_neighbors(node):
                     community = self.communities[neighbor]
@@ -167,13 +179,14 @@ class PyLouvain:
                     if gain > best_gain:
                         best_community = community
                         best_gain = gain
+                        best_shared_links = k_i_in
                 # insert _node into the community maximizing the modularity gain
                 best_partition[best_community].append(node)
                 self.communities[node] = best_community
-                self.s_in[best_community] += self.k_i[node]
+                self.s_in[best_community] += best_shared_links
                 self.s_tot[best_community] += self.k_i[node]
                 if node_community != best_community:
-                    improvement = True
+                    improvement = 1
             if not improvement:
                 break
         return best_partition
@@ -248,10 +261,13 @@ class PyLouvain:
         # recomputing k_i vector and storing edges by node
         self.k_i = [0 for n in nodes_]
         self.edges_of_node = {}
+        self.w = [0 for n in nodes_]
         for e in edges_:
             self.k_i[e[0][0]] += e[1]
             if e[0][0] != e[0][1]: # counting self-loops only once
                 self.k_i[e[0][1]] += e[1]
+            else: # self-loops
+                self.w[e[0][0]] += e[1]
             if e[0][0] not in self.edges_of_node:
                 self.edges_of_node[e[0][0]] = [e]
             else:
