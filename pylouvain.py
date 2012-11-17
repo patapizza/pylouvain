@@ -52,10 +52,20 @@ class PyLouvain:
         #            k_i (sum of the weights of the links incident to node i)
         self.m2 = 0
         self.k_i = [0 for n in nodes]
+        self.edges_of_node = {}
         for e in edges:
             self.m2 += e[1]
             self.k_i[e[0][0]] += e[1]
             self.k_i[e[0][1]] += e[1]
+            # save edges by node
+            if e[0][0] not in self.edges_of_node:
+                self.edges_of_node[e[0][0]] = [e]
+            else:
+                self.edges_of_node[e[0][0]].append(e)
+            if e[0][1] not in self.edges_of_node:
+                self.edges_of_node[e[0][1]] = [e]
+            elif e[0][0] != e[0][1]:
+                self.edges_of_node[e[0][1]].append(e)
         self.m2 *= 2
         # access community of a node in O(1) time
         self.communities = [n for n in nodes]
@@ -150,7 +160,7 @@ class PyLouvain:
                         continue
                     communities[community] = 1
                     k_i_in = 0
-                    for e in network[1]:
+                    for e in self.edges_of_node[node]:
                         if e[0][0] == node and self.communities[e[0][1]] == community or e[0][1] == node and self.communities[e[0][0]] == community:
                             k_i_in += e[1]
                     # compute modularity gain obtained by moving _node to the community of _neighbor
@@ -240,10 +250,19 @@ class PyLouvain:
         edges_ = [(k, v) for k, v in edges_.items()]
         # recompute k_i vector
         self.k_i = [0 for n in nodes_]
+        self.edges_of_node = {}
         for e in edges_:
             self.k_i[e[0][0]] += e[1]
             if e[0][0] != e[0][1]: # counting self-loops only once
                 self.k_i[e[0][1]] += e[1]
+            if e[0][0] not in self.edges_of_node:
+                self.edges_of_node[e[0][0]] = [e]
+            else:
+                self.edges_of_node[e[0][0]].append(e)
+            if e[0][1] not in self.edges_of_node:
+                self.edges_of_node[e[0][1]] = [e]
+            elif e[0][0] != e[0][1]:
+                self.edges_of_node[e[0][1]].append(e)
         # resetting communities
         self.communities = [n for n in nodes_]
         return (nodes_, edges_)
