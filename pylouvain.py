@@ -148,8 +148,7 @@ class PyLouvain:
                 best_community = node_community
                 best_gain = 0
                 # remove _node from its community
-                partition = [[pp for pp in p] for p in best_partition]
-                partition[node_community].remove(node)
+                best_partition[node_community].remove(node)
                 self.communities[node] = -1
                 self.s_in[node_community] -= self.k_i[node]
                 self.s_tot[node_community] -= self.k_i[node]
@@ -169,11 +168,10 @@ class PyLouvain:
                         best_community = community
                         best_gain = gain
                 # insert _node into the community maximizing the modularity gain
-                partition[best_community].append(node)
+                best_partition[best_community].append(node)
                 self.communities[node] = best_community
                 self.s_in[best_community] += self.k_i[node]
                 self.s_tot[best_community] += self.k_i[node]
-                best_partition = partition
                 if node_community != best_community:
                     improvement = True
             if not improvement:
@@ -247,7 +245,7 @@ class PyLouvain:
             except KeyError:
                 edges_[(ci, cj)] = e[1]
         edges_ = [(k, v) for k, v in edges_.items()]
-        # recompute k_i vector
+        # recomputing k_i vector and storing edges by node
         self.k_i = [0 for n in nodes_]
         self.edges_of_node = {}
         for e in edges_:
