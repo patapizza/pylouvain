@@ -3,7 +3,7 @@
 '''
     Implements the Louvain method.
     Input: a weighted undirected graph
-    Ouput: a partition whose modularity is maximum
+    Ouput: a (partition, modularity) pair where modularity is maximum
 '''
 class PyLouvain:
 
@@ -13,7 +13,6 @@ class PyLouvain:
     '''
     @classmethod
     def from_file(cls, path):
-        # TODO: handle "node_from node_to weight" format
         f = open(path, 'r')
         lines = f.readlines()
         f.close()
@@ -25,22 +24,50 @@ class PyLouvain:
                 break
             nodes[n[0]] = 1
             nodes[n[1]] = 1
-            edges.append(((n[0], n[1]), 1))
+            w = 1
+            if len(n) == 3:
+                w = int(n[2])
+            edges.append(((n[0], n[1]), w))
         # rebuild graph with successive identifiers
-        nodes = list(nodes.keys())
-        nodes.sort()
-        i = 0
-        nodes_ = []
-        d = {}
-        for n in nodes:
-            nodes_.append(i)
-            d[n] = i
-            i += 1
-        edges_ = []
-        for e in edges:
-            edges_.append(((d[e[0][0]], d[e[0][1]]), e[1]))
+        nodes_, edges_ = in_order(nodes, edges)
         print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
         return cls(nodes_, edges_)
+
+    '''
+        Builds a graph from _path.
+        _path: a path to a file following the Graph Modeling Language specification
+    '''
+    @classmethod
+    def from_gml_file(cls, path):
+        f = open(path, 'r')
+        lines = f.readlines()
+        f.close()
+        nodes = {}
+        edges = []
+        current_edge = (-1, -1, 1)
+        in_edge = 0
+        for line in lines:
+            words = line.split()
+            if not words:
+                break
+            if words[0] == 'id':
+                nodes[int(words[1])] = 1
+            elif words[0] == 'source':
+                in_edge = 1
+                if current_edge != (-1, -1, 1):
+                    edges.append(((current_edge[0], current_edge[1]), 1))
+                    current_edge = (-1, -1, 1)
+                current_edge = (int(words[1]), current_edge[1], current_edge[2])
+            elif words[0] == 'target' and in_edge:
+                current_edge = (current_edge[0], int(words[1]), current_edge[2])
+            elif words[0] == 'value' and in_edge:
+                edges.append(((current_edge[0], current_edge[1]), int(words[1])))
+                current_edge = (-1, -1, 1)
+            elif words[0] == ']' and in_edge:
+                in_edge = 0
+        nodes, edges = in_order(nodes, edges)
+        print("%d nodes, %d edges" % (len(nodes), len(edges)))
+        return cls(nodes, edges)
 
     '''
         Initializes the method.
@@ -50,14 +77,14 @@ class PyLouvain:
     def __init__(self, nodes, edges):
         self.nodes = nodes
         self.edges = edges
-        # precompute m2 (2 * sum of the weights of all links in network)
+        # precompute m (sum of the weights of all links in network)
         #            k_i (sum of the weights of the links incident to node i)
-        self.m2 = 0
+        self.m = 0
         self.k_i = [0 for n in nodes]
         self.edges_of_node = {}
         self.w = [0 for n in nodes]
         for e in edges:
-            self.m2 += e[1]
+            self.m += e[1]
             self.k_i[e[0][0]] += e[1]
             self.k_i[e[0][1]] += e[1] # there's no self-loop initially
             # save edges by node
@@ -93,7 +120,7 @@ class PyLouvain:
             network = self.second_phase(network, partition)
             best_partition = partition
             best_q = q
-        return best_partition
+        return (best_partition, best_q)
 
     '''
         Computes the modularity of the current network.
@@ -101,9 +128,9 @@ class PyLouvain:
     '''
     def compute_modularity(self, partition):
         q = 0
-        m = self.m2 * 2
+        m2 = self.m * 2
         for i in range(len(partition)):
-            q += self.s_in[i] / m - (self.s_tot[i] / m) ** 2
+            q += self.s_in[i] / m2 - (self.s_tot[i] / m2) ** 2
         return q
 
     '''
@@ -113,7 +140,7 @@ class PyLouvain:
         _k_i_in: the sum of the weights of the links from _node to nodes in _c
     '''
     def compute_modularity_gain(self, node, c, k_i_in):
-        return 2 * k_i_in - self.s_tot[c] * self.k_i[node] / self.m2
+        return 2 * k_i_in - self.s_tot[c] * self.k_i[node] / self.m
 
     '''
         Performs the first phase of the method.
@@ -246,3 +273,23 @@ class PyLouvain:
         self.communities = [n for n in nodes_]
         return (nodes_, edges_)
 
+'''
+    Rebuilds a graph with successive nodes' ids.
+    _nodes: a list of int
+    _edges: a list of ((int, int), weight) pairs
+'''
+def in_order(nodes, edges):
+        # rebuild graph with successive identifiers
+        nodes = list(nodes.keys())
+        nodes.sort()
+        i = 0
+        nodes_ = []
+        d = {}
+        for n in nodes:
+            nodes_.append(i)
+            d[n] = i
+            i += 1
+        edges_ = []
+        for e in edges:
+            edges_.append(((d[e[0][0]], d[e[0][1]]), e[1]))
+        return (nodes_, edges_)
