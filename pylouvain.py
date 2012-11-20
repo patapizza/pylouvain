@@ -23,11 +23,9 @@ class PyLouvain:
             n = line.split()
             if not n:
                 break
-            n0 = int(n[0])
-            n1 = int(n[1])
-            nodes[n0] = 1
-            nodes[n1] = 1
-            edges.append(((n0, n1), 1))
+            nodes[n[0]] = 1
+            nodes[n[1]] = 1
+            edges.append(((n[0], n[1]), 1))
         # rebuild graph with successive identifiers
         nodes = list(nodes.keys())
         nodes.sort()
@@ -43,14 +41,6 @@ class PyLouvain:
             edges_.append(((d[e[0][0]], d[e[0][1]]), e[1]))
         print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
         return cls(nodes_, edges_)
-
-    def get_edges(self):
-        return self.edges
-
-    def set_sin_stot_m2(self, sin, stot, m2):
-        self.s_in = sin
-        self.s_tot = stot
-        self.m2 = m2
 
     '''
         Initializes the method.
@@ -110,10 +100,10 @@ class PyLouvain:
         _partition: a list of lists of nodes
     '''
     def compute_modularity(self, partition):
-        q = 0.
+        q = 0
         m = self.m2 * 2
         for i in range(len(partition)):
-            q += float(self.s_in[i]) / m - (float(self.s_tot[i]) / m) ** 2
+            q += self.s_in[i] / m - (self.s_tot[i] / m) ** 2
         return q
 
     '''
