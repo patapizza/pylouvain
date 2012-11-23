@@ -66,6 +66,8 @@ class PyLouvain:
                 edges.append(((current_edge[0], current_edge[1]), int(words[1])))
                 current_edge = (-1, -1, 1)
             elif words[0] == ']' and in_edge:
+                edges.append(((current_edge[0], current_edge[1]), 1))
+                current_edge = (-1, -1, 1)
                 in_edge = 0
         nodes, edges = in_order(nodes, edges)
         #print("%d nodes, %d edges" % (len(nodes), len(edges)))
@@ -86,6 +88,7 @@ class PyLouvain:
         self.edges_of_node = {}
         self.w = [0 for n in nodes]
         for e in edges:
+            print(e)
             self.m += e[1]
             self.k_i[e[0][0]] += e[1]
             self.k_i[e[0][1]] += e[1] # there's no self-loop initially
@@ -289,7 +292,7 @@ class PyLouvain:
 
 '''
     Rebuilds a graph with successive nodes' ids.
-    _nodes: a list of int
+    _nodes: a dict of int
     _edges: a list of ((int, int), weight) pairs
 '''
 def in_order(nodes, edges):
