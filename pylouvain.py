@@ -7,6 +7,8 @@
 '''
 class PyLouvain:
 
+    def get_edges(self):
+        return self.edges
     '''
         Builds a graph from _path.
         _path: a path to a file containing "node_from node_to" edges (one per line)
@@ -30,7 +32,7 @@ class PyLouvain:
             edges.append(((n[0], n[1]), w))
         # rebuild graph with successive identifiers
         nodes_, edges_ = in_order(nodes, edges)
-        print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
+        #print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
         return cls(nodes_, edges_)
 
     '''
@@ -66,7 +68,7 @@ class PyLouvain:
             elif words[0] == ']' and in_edge:
                 in_edge = 0
         nodes, edges = in_order(nodes, edges)
-        print("%d nodes, %d edges" % (len(nodes), len(edges)))
+        #print("%d nodes, %d edges" % (len(nodes), len(edges)))
         return cls(nodes, edges)
 
     '''
@@ -98,6 +100,7 @@ class PyLouvain:
                 self.edges_of_node[e[0][1]].append(e)
         # access community of a node in O(1) time
         self.communities = [n for n in nodes]
+        self.actual_partition = []
 
 
     '''
@@ -109,18 +112,29 @@ class PyLouvain:
         best_q = -1
         i = 1
         while 1:
-            print("pass #%d" % i)
+            #print("pass #%d" % i)
             i += 1
             partition = self.first_phase(network)
             q = self.compute_modularity(partition)
             partition = [c for c in partition if c]
-            print("%s (%.8f)" % (partition, q))
+            #print("%s (%.8f)" % (partition, q))
+            # clustering initial nodes with partition
+            if self.actual_partition:
+                actual = []
+                for p in partition:
+                    part = []
+                    for n in p:
+                        part.extend(self.actual_partition[n])
+                    actual.append(part)
+                self.actual_partition = actual
+            else:
+                self.actual_partition = partition
             if q == best_q:
                 break
             network = self.second_phase(network, partition)
             best_partition = partition
             best_q = q
-        return (best_partition, best_q)
+        return (self.actual_partition, best_q)
 
     '''
         Computes the modularity of the current network.
