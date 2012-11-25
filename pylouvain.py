@@ -56,15 +56,11 @@ class PyLouvain:
                 nodes[int(words[1])] = 1
             elif words[0] == 'source':
                 in_edge = 1
-                if current_edge != (-1, -1, 1):
-                    edges.append(((current_edge[0], current_edge[1]), 1))
-                    current_edge = (-1, -1, 1)
                 current_edge = (int(words[1]), current_edge[1], current_edge[2])
             elif words[0] == 'target' and in_edge:
                 current_edge = (current_edge[0], int(words[1]), current_edge[2])
             elif words[0] == 'value' and in_edge:
-                edges.append(((current_edge[0], current_edge[1]), int(words[1])))
-                current_edge = (-1, -1, 1)
+                current_edge = (current_edge[0], current_edge[1], int(words[1]))
             elif words[0] == ']' and in_edge:
                 edges.append(((current_edge[0], current_edge[1]), 1))
                 current_edge = (-1, -1, 1)
