@@ -7,8 +7,6 @@
 '''
 class PyLouvain:
 
-    def get_edges(self):
-        return self.edges
     '''
         Builds a graph from _path.
         _path: a path to a file containing "node_from node_to" edges (one per line)
@@ -32,7 +30,7 @@ class PyLouvain:
             edges.append(((n[0], n[1]), w))
         # rebuild graph with successive identifiers
         nodes_, edges_ = in_order(nodes, edges)
-        #print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
+        print("%d nodes, %d edges" % (len(nodes_), len(edges_)))
         return cls(nodes_, edges_)
 
     '''
@@ -66,7 +64,7 @@ class PyLouvain:
                 current_edge = (-1, -1, 1)
                 in_edge = 0
         nodes, edges = in_order(nodes, edges)
-        #print("%d nodes, %d edges" % (len(nodes), len(edges)))
+        print("%d nodes, %d edges" % (len(nodes), len(edges)))
         return cls(nodes, edges)
 
     '''
@@ -84,7 +82,6 @@ class PyLouvain:
         self.edges_of_node = {}
         self.w = [0 for n in nodes]
         for e in edges:
-            print(e)
             self.m += e[1]
             self.k_i[e[0][0]] += e[1]
             self.k_i[e[0][1]] += e[1] # there's no self-loop initially
